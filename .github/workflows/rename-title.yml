@@ -1,4 +1,4 @@
-name: Rename meal plan title
+name: Adjust meal plan layout
 
 on:
   push:
@@ -9,18 +9,47 @@ permissions:
   contents: write
 
 jobs:
-  rename:
+  adjust:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Remove smartphone-view wording
+      - name: Adjust meal plan layout
         run: |
           python - <<'PY'
           from pathlib import Path
+
           p = Path('index.html')
           s = p.read_text(encoding='utf-8')
+
+          # Keep the shortened title wording.
           s = s.replace('<title>4週間献立 スマホビュー</title>', '<title>4週間献立</title>')
           s = s.replace('<h1>🍳 4週間献立・スマホビュー</h1>', '<h1>🍳 4週間献立</h1>')
+
+          # Put the prep/shopping links to the right of the title.
+          old_header = '<h1>🍳 4週間献立</h1><div class="top-anchor-nav"><a href="#prep-start">🔪 下準備へ</a><a href="#shopping-start">🛒 材料・買い物へ</a></div>'
+          new_header = '<div class="top-title-row"><h1>🍳 4週間献立</h1><div class="top-anchor-nav"><a href="#prep-start">🔪 下準備へ</a><a href="#shopping-start">🛒 材料・買い物へ</a></div></div>'
+          s = s.replace(old_header, new_header)
+
+          # Remove the recipe-link legend below the title.
+          s = s.replace('<div class="linkhint">料理名 → Notion ／「元レシピ」→ URLプロパティのサイト</div>\n', '')
+          s = s.replace('<div class="linkhint">料理名 → Notion ／「元レシピ」→ URLプロパティのサイト</div>', '')
+
+          # Remove the subtitle beside each week title.
+          s = s.replace('<small>献立・買い物・下準備</small>', '')
+
+          # Match the prep section heading size to “今週の買い物”.
+          marker = '/* header + prep title layout */'
+          if marker not in s:
+              css = '''
+          /* header + prep title layout */
+          .top-title-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 8px;min-width:0}
+          .top-title-row h1{margin:0!important;flex:0 0 auto}
+          .top-title-row .top-anchor-nav{margin:0!important;display:flex;flex-wrap:nowrap;justify-content:flex-end;gap:5px;min-width:0}
+          .top-title-row .top-anchor-nav a{white-space:nowrap;padding:5px 8px;font-size:12px}
+          .prep-summary h3{font-size:17px!important}
+          '''
+              s = s.replace('</style>', css + '\n</style>', 1)
+
           p.write_text(s, encoding='utf-8')
           PY
       - name: Commit change
@@ -31,5 +60,5 @@ jobs:
             exit 0
           fi
           git add index.html
-          git commit -m 'Remove smartphone-view wording'
+          git commit -m 'Adjust meal plan layout'
           git push
