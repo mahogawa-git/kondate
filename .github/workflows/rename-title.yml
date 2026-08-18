@@ -3,6 +3,7 @@ name: Adjust meal plan layout
 on:
   push:
     paths:
+      - 'index.html'
       - '.github/workflows/rename-title.yml'
 
 permissions:
@@ -25,6 +26,24 @@ jobs:
           # Remove the repeated week labels below the week tabs.
           s = re.sub(r'<div class="weektitle"><span>[1-4]週目</span></div>\s*', '', s)
 
+          # Repair shopping-list fractions that were incorrectly split on the
+          # half-width slash. Example: "白菜 1" + "4玉" -> "白菜 1/4玉".
+          # Full-width ／ remains the only intended separator between materials.
+          row = r'<label class="shop-row"><input[^>]*/><span class="shop-item-text">([^<]+)</span></label>'
+          pair = re.compile(
+              r'(<label class="shop-row"><input[^>]*/><span class="shop-item-text">)'
+              r'([^<]*\s\d+(?:\s+\d+)?)'
+              r'(</span></label>)'
+              r'<label class="shop-row"><input[^>]*/><span class="shop-item-text">'
+              r'(\d+[^<]*)'
+              r'</span></label>'
+          )
+          while True:
+              s2, n = pair.subn(lambda m: m.group(1) + m.group(2) + '/' + m.group(4) + m.group(3), s)
+              s = s2
+              if n == 0:
+                  break
+
           # Make the shopping-list reset button a little larger.
           marker = '/* larger shopping reset button */'
           if marker not in s:
@@ -44,5 +63,5 @@ jobs:
             exit 0
           fi
           git add index.html
-          git commit -m 'Remove week labels and enlarge reset button'
+          git commit -m 'Preserve fractions in shopping materials'
           git push
