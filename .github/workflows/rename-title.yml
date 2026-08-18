@@ -18,27 +18,74 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
+          import json
           import re
 
           p = Path('index.html')
           s = p.read_text(encoding='utf-8')
 
-          # Add a bookmark/browser-tab icon that matches the meal-plan title.
-          favicon = Path('favicon.svg')
-          favicon.write_text('''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-          <rect width="64" height="64" rx="14" fill="#f7f6f2"/>
-          <text x="32" y="45" text-anchor="middle" font-size="40">🍳</text>
-          </svg>''', encoding='utf-8')
-          icon_link = '<link rel="icon" href="favicon.svg" type="image/svg+xml"/>'
-          if icon_link not in s:
-              s = s.replace('<title>4週間献立</title>', '<title>4週間献立</title>\n' + icon_link, 1)
+          def icon_svg(size):
+              radius = round(size * 0.22)
+              font = round(size * 0.62)
+              y = round(size * 0.70)
+              return f'''<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}" viewBox="0 0 {size} {size}">
+          <rect width="{size}" height="{size}" rx="{radius}" fill="#f7f6f2"/>
+          <text x="{size/2:g}" y="{y}" text-anchor="middle" font-size="{font}">🍳</text>
+          </svg>'''
+
+          # Browser/tab favicon.
+          Path('favicon.svg').write_text(icon_svg(64), encoding='utf-8')
+
+          # Home-screen/PWA icons.
+          Path('icon-192.svg').write_text(icon_svg(192), encoding='utf-8')
+          Path('icon-512.svg').write_text(icon_svg(512), encoding='utf-8')
+
+          manifest = {
+              "name": "4週間献立",
+              "short_name": "献立",
+              "start_url": "./",
+              "scope": "./",
+              "display": "standalone",
+              "background_color": "#f7f6f2",
+              "theme_color": "#f7f6f2",
+              "icons": [
+                  {
+                      "src": "icon-192.svg",
+                      "sizes": "192x192",
+                      "type": "image/svg+xml",
+                      "purpose": "any maskable"
+                  },
+                  {
+                      "src": "icon-512.svg",
+                      "sizes": "512x512",
+                      "type": "image/svg+xml",
+                      "purpose": "any maskable"
+                  }
+              ]
+          }
+          Path('manifest.webmanifest').write_text(
+              json.dumps(manifest, ensure_ascii=False, indent=2) + '\n',
+              encoding='utf-8'
+          )
+
+          # Add favicon + home-screen metadata to the page head.
+          head_items = [
+              '<link rel="icon" href="favicon.svg" type="image/svg+xml"/>',
+              '<link rel="manifest" href="manifest.webmanifest"/>',
+              '<link rel="apple-touch-icon" href="icon-192.svg"/>',
+              '<meta name="theme-color" content="#f7f6f2"/>',
+              '<meta name="mobile-web-app-capable" content="yes"/>'
+          ]
+          anchor = '<title>4週間献立</title>'
+          for item in head_items:
+              if item not in s:
+                  s = s.replace(anchor, anchor + '\n' + item, 1)
 
           # Remove the repeated week labels below the week tabs.
           s = re.sub(r'<div class="weektitle"><span>[1-4]週目</span></div>\s*', '', s)
 
           # Repair shopping-list fractions that were incorrectly split on the
-          # half-width slash. Example: "白菜 1" + "4玉" -> "白菜 1/4玉".
-          # Full-width ／ remains the only intended separator between materials.
+          # half-width slash. Full-width ／ is the separator between materials.
           pair = re.compile(
               r'(<label class="shop-row"><input[^>]*/><span class="shop-item-text">)'
               r'([^<]*\s\d+(?:\s+\d+)?)'
@@ -71,6 +118,6 @@ jobs:
           if git diff --quiet && [ -z "$(git status --porcelain)" ]; then
             exit 0
           fi
-          git add index.html favicon.svg
-          git commit -m 'Add meal plan bookmark icon'
+          git add index.html favicon.svg icon-192.svg icon-512.svg manifest.webmanifest
+          git commit -m 'Add home screen app icon'
           git push
