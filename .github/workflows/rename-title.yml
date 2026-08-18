@@ -1,0 +1,35 @@
+name: Rename meal plan title
+
+on:
+  push:
+    paths:
+      - '.github/workflows/rename-title.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  rename:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Remove smartphone-view wording
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+          s = s.replace('<title>4週間献立 スマホビュー</title>', '<title>4週間献立</title>')
+          s = s.replace('<h1>🍳 4週間献立・スマホビュー</h1>', '<h1>🍳 4週間献立</h1>')
+          p.write_text(s, encoding='utf-8')
+          PY
+      - name: Commit change
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          if git diff --quiet; then
+            exit 0
+          fi
+          git add index.html
+          git commit -m 'Remove smartphone-view wording'
+          git push
