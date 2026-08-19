@@ -139,6 +139,74 @@ jobs:
 
           s = legend_re.sub(reorder_legend, s)
 
+          # Within each prep action (e.g. 薄切り), list recipe links in the
+          # same weekend-first order as the meal cards.
+          prep_recipes_re = re.compile(r'(<div class="prep-recipes">)(.*?)(</div>)', re.S)
+          prep_link_re = re.compile(r'<a class="prep-day-link [^"]+"[^>]*data-day="([^"]+)"[^>]*>.*?</a>', re.S)
+
+          def reorder_prep_recipes(match):
+              links = list(prep_link_re.finditer(match.group(2)))
+              if len(links) < 2:
+                  return match.group(0)
+
+              ordered = [
+                  (day_order.get(link.group(1), 99), i, link.group(0))
+                  for i, link in enumerate(links)
+              ]
+              ordered.sort(key=lambda item: (item[0], item[1]))
+              return match.group(1) + ''.join(item[2] for item in ordered) + match.group(3)
+
+          s = prep_recipes_re.sub(reorder_prep_recipes, s)
+
+          # Sort shopping rows to roughly match the order used by AEON's
+          # online supermarket. Keep the existing section headings unchanged.
+          shopping_priority = [
+              # fish
+              ('魚', ('鮭', 'サーモン', 'サバ', 'さば', '鯖', 'ブリ', 'ぶり', '白身魚', '魚', 'しらす', 'ツナ')),
+              # meat
+              ('肉', ('豚', '鶏', '牛', '合いびき', '合挽', 'ひき肉', '挽肉', 'ハム', 'ベーコン', '肉')),
+              # produce
+              ('とまと', ('トマト', 'とまと')),
+              ('レタス・キャベツ', ('レタス', 'キャベツ', '白菜')),
+              ('大根', ('大根',)),
+              ('葉物', ('小松菜', 'ほうれん草', '水菜', 'チンゲン菜', '青梗菜', 'ニラ', '春菊')),
+              ('いも', ('じゃがいも', 'さつまいも', '里芋', '長芋', '山芋')),
+              ('根菜', ('れんこん', 'ごぼう', 'かぶ')),
+              ('たまねぎ', ('玉ねぎ', 'たまねぎ', '長ネギ', '長ねぎ', 'ねぎ', 'ネギ')),
+              ('にんじん', ('人参', 'にんじん')),
+              ('なす・ぴーまん・もやし', ('なす', 'ナス', 'ピーマン', 'パプリカ', 'もやし')),
+              ('きのこ', ('きのこ', 'えのき', 'しめじ', 'しいたけ', '椎茸', 'エリンギ', 'まいたけ', '舞茸', 'マッシュルーム')),
+              ('豆', ('枝豆', 'いんげん', '豆', 'ビーンズ')),
+          ]
+
+          def shopping_rank(text):
+              for rank, (_, keywords) in enumerate(shopping_priority):
+                  if any(keyword in text for keyword in keywords):
+                      return rank
+              return 99
+
+          shopgroup_re = re.compile(
+              r'(<div class="shopgroup"><strong>.*?</strong><div class="shop-checklist">)(.*?)(</div></div>)',
+              re.S,
+          )
+          shoprow_re = re.compile(r'<label class="shop-row">.*?</label>', re.S)
+          shoptext_re = re.compile(r'<span class="shop-item-text">(.*?)</span>', re.S)
+
+          def reorder_shopgroup(match):
+              rows = shoprow_re.findall(match.group(2))
+              if len(rows) < 2:
+                  return match.group(0)
+
+              ordered = []
+              for i, row in enumerate(rows):
+                  text_match = shoptext_re.search(row)
+                  text = re.sub(r'<[^>]+>', '', text_match.group(1)) if text_match else ''
+                  ordered.append((shopping_rank(text), i, row))
+              ordered.sort(key=lambda item: (item[0], item[1]))
+              return match.group(1) + ''.join(item[2] for item in ordered) + match.group(3)
+
+          s = shopgroup_re.sub(reorder_shopgroup, s)
+
           # Repair shopping-list fractions that were incorrectly split on the
           # half-width slash. Full-width ／ is the separator between materials.
           pair = re.compile(
