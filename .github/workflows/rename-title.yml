@@ -84,6 +84,61 @@ jobs:
           # Remove the repeated week labels below the week tabs.
           s = re.sub(r'<div class="weektitle"><span>[1-4]週目</span></div>\s*', '', s)
 
+          # Show the meals in shopping-cycle order: weekend first, then Mon-Fri.
+          day_order = {
+              '週末昼': 0,
+              '週末夜': 1,
+              '月': 2,
+              '火': 3,
+              '水': 4,
+              '木': 5,
+              '金': 6,
+          }
+          card_re = re.compile(r'<section class="daycard">.*?</section>', re.S)
+          title_re = re.compile(r'<h3>(.*?)</h3>')
+          week_re = re.compile(
+              r'(<main class="week"[^>]*>)(.*?)(<section class="prep-summary">)',
+              re.S,
+          )
+
+          def reorder_week(match):
+              body = match.group(2)
+              cards = list(card_re.finditer(body))
+              if not cards:
+                  return match.group(0)
+
+              ordered = []
+              for card in cards:
+                  title_match = title_re.search(card.group(0))
+                  title = title_match.group(1) if title_match else ''
+                  ordered.append((day_order.get(title, 99), card.group(0)))
+              ordered.sort(key=lambda item: item[0])
+
+              first = cards[0].start()
+              last = cards[-1].end()
+              body = body[:first] + ''.join(card for _, card in ordered) + body[last:]
+              return match.group(1) + body + match.group(3)
+
+          s = week_re.sub(reorder_week, s)
+
+          # Keep the prep legend in the same weekend-first order.
+          legend_re = re.compile(r'(<div class="prep-weekday-legend">)(.*?)(</div>)', re.S)
+          chip_re = re.compile(r'<span class="prep-day-chip [^"]+">.*?</span>', re.S)
+
+          def reorder_legend(match):
+              chips = chip_re.findall(match.group(2))
+              if not chips:
+                  return match.group(0)
+
+              def chip_order(chip):
+                  text = re.sub(r'<[^>]+>', '', chip)
+                  return day_order.get(text, 99)
+
+              chips.sort(key=chip_order)
+              return match.group(1) + ''.join(chips) + match.group(3)
+
+          s = legend_re.sub(reorder_legend, s)
+
           # Repair shopping-list fractions that were incorrectly split on the
           # half-width slash. Full-width ／ is the separator between materials.
           pair = re.compile(
@@ -119,5 +174,5 @@ jobs:
             exit 0
           fi
           git add index.html favicon.svg icon-192.svg icon-512.svg manifest.webmanifest
-          git commit -m 'Add home screen app icon'
+          git commit -m 'Adjust meal plan layout'
           git push
