@@ -81,6 +81,14 @@ jobs:
               if item not in s:
                   s = s.replace(anchor, anchor + '\n' + item, 1)
 
+          # Notion page URLs require /p/ before the page ID in the web app.
+          # Normalize older generated links such as https://app.notion.com/<page-id>.
+          s = re.sub(
+              r'https://app\.notion\.com/(?!p/)([0-9a-fA-F]{32})(?=["?&#/]|$)',
+              r'https://app.notion.com/p/\1',
+              s,
+          )
+
           # Remove the repeated week labels below the week tabs.
           s = re.sub(r'<div class="weektitle"><span>[1-4]週目</span></div>\s*', '', s)
 
