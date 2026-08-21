@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import json
 import re
 from collections import defaultdict
 from fractions import Fraction
-from html import escape, unescape
+from html import escape
 from pathlib import Path
 
 P = Path('index.html')
+DATA = Path('recipes.json')
 
 PROTEIN_KEYS = (
     '鮭','サーモン','サバ','さば','鯖','ブリ','ぶり','白身魚','魚','しらす','ツナ',
@@ -39,9 +41,15 @@ SHOPPING_PRIORITY = [
 ]
 
 
+def split_items(value: str | None) -> list[str]:
+    if not value:
+        return []
+    return [x.strip() for x in re.split(r'\s*(?:／|\r?\n)+\s*', value) if x.strip()]
+
+
 def split_name_qty(text: str) -> tuple[str, str]:
     text = text.strip()
-    m = re.match(r'^(.*?)[ \t]+((?:\d|\d+\.\d|\d+/\d|\d+\s+\d+/\d).*)$', text)
+    m = re.match(r'^(.*?)[ \t]+((?:\d+\s+\d+/\d|\d+/\d|\d+(?:\.\d+)?).*)$', text)
     if m:
         return m.group(1).strip(), m.group(2).strip()
     return text, ''
@@ -63,8 +71,8 @@ def parse_number(value: str) -> Fraction | None:
 
 
 def parse_qty(qty: str):
-    # Numeric prefix + unit; parenthetical package notes are retained only for a single row.
-    m = re.match(r'^(\d+(?:\.\d+)?|\d+/\d+|\d+\s+\d+/\d+)([^（(\s]*)(.*)$', qty.strip())
+    # Match fractions before plain integers so "1/2本" is one numeric value.
+    m = re.match(r'^(\d+\s+\d+/\d|\d+/\d|\d+(?:\.\d+)?)([^（(\s]*)(.*)$', qty.strip())
     if not m:
         return None
     num = parse_number(m.group(1))
@@ -100,9 +108,9 @@ def rank(text: str) -> int:
 
 def aggregate(items: list[str]) -> list[str]:
     numeric = defaultdict(lambda: {'total': Fraction(0), 'count': 0, 'suffix': ''})
-    passthrough = []
-    order = []
-    seen_keys = set()
+    passthrough: list[str] = []
+    order: list[tuple[str, str]] = []
+    seen_keys: set[tuple[str, str]] = set()
 
     for raw in items:
         name, qty = split_name_qty(raw)
@@ -111,7 +119,7 @@ def aggregate(items: list[str]) -> list[str]:
             passthrough.append(raw)
             continue
         num, unit, suffix = parsed
-        # Unitless quantities are deliberately not merged with count units (e.g. 本/個).
+        # Different units are kept separate (e.g. 大根 5cm and 大根 1/3本).
         key = (name, unit)
         if key not in seen_keys:
             seen_keys.add(key)
@@ -124,28 +132,36 @@ def aggregate(items: list[str]) -> list[str]:
         else:
             entry['suffix'] = ''
 
-    result = []
+    result: list[str] = []
     for key in order:
         name, unit = key
         e = numeric[key]
         suffix = e['suffix'] if e['count'] == 1 else ''
         result.append(f'{name} {fmt_number(e["total"])}{unit}{suffix}')
 
-    # Avoid duplicate unparseable rows.
     for item in passthrough:
         if item not in result:
             result.append(item)
     return result
 
 
-def build_utility(section: str) -> str:
+def items_for_week(recipes: list[dict], week: int) -> list[str]:
+    flag = f'w{week}'
+    items: list[str] = []
+    for recipe in recipes:
+        if recipe.get(flag) != '__YES__':
+            continue
+        items.extend(split_items(recipe.get('materials')))
+    return items
+
+
+def build_utility(section: str, recipes: list[dict]) -> str:
     wm = re.search(r'data-week="(\d+)"', section)
     if not wm:
         return section
     week = int(wm.group(1))
     first = week == 1
-    rows = [unescape(x) for x in re.findall(r'<span class="shop-item-text">(.*?)</span>', section, re.S)]
-    items = aggregate(rows)
+    items = aggregate(items_for_week(recipes, week))
 
     groups = defaultdict(list)
     for item in items:
@@ -174,8 +190,13 @@ def build_utility(section: str) -> str:
 
 def main():
     s = P.read_text(encoding='utf-8')
-    # Utility sections contain no nested <section>, so this is safe for the current page structure.
-    s = re.sub(r'<section class="utility">.*?</section>', lambda m: build_utility(m.group(0)), s, flags=re.S)
+    recipes = json.loads(DATA.read_text(encoding='utf-8'))
+    s = re.sub(
+        r'<section class="utility">.*?</section>',
+        lambda m: build_utility(m.group(0), recipes),
+        s,
+        flags=re.S,
+    )
     P.write_text(s, encoding='utf-8')
 
 
