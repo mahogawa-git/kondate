@@ -5,6 +5,7 @@ on:
     paths:
       - 'recipes.json'
       - 'sync_recipe_data.py'
+      - 'aggregate_shopping.py'
       - '.github/workflows/sync-recipes.yml'
 
 permissions:
@@ -16,7 +17,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Rebuild meal plan from recipe data
-        run: python sync_recipe_data.py
+        run: |
+          python sync_recipe_data.py
+          python aggregate_shopping.py
       - name: Commit generated page
         run: |
           git config user.name 'github-actions[bot]'
