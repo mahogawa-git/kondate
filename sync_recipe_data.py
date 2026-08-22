@@ -77,6 +77,46 @@ def qty_for(ingredient: str, materials: str | None) -> str:
     return ""
 
 
+def parse_numeric_qty(qty: str) -> tuple[Fraction, str] | None:
+    """Parse quantities like 2個, 1/2個, 1 1/2枚, 300g into number + unit."""
+    qty = qty.strip()
+    m = re.match(r"^(\d+\s+\d+/\d+|\d+/\d+|\d+(?:\.\d+)?)\s*(.+)$", qty)
+    if not m:
+        return None
+    number_text, unit = m.groups()
+    try:
+        if " " in number_text and "/" in number_text:
+            whole, frac = number_text.split(None, 1)
+            number = Fraction(int(whole), 1) + Fraction(frac)
+        else:
+            number = Fraction(number_text)
+    except (ValueError, ZeroDivisionError):
+        return None
+    return number, unit.strip()
+
+
+def format_fraction(value: Fraction) -> str:
+    if value.denominator == 1:
+        return str(value.numerator)
+    whole = value.numerator // value.denominator
+    remainder = value - whole
+    if whole:
+        return f"{whole} {remainder.numerator}/{remainder.denominator}"
+    return f"{value.numerator}/{value.denominator}"
+
+
+def aggregate_action_qty(refs: list[tuple[dict, str]]) -> str:
+    """Return a safe total only when every prep reference has a parseable quantity with the same unit."""
+    parsed = [parse_numeric_qty(qty) for _, qty in refs]
+    if not parsed or any(x is None for x in parsed):
+        return ""
+    units = {x[1] for x in parsed if x is not None}
+    if len(units) != 1:
+        return ""
+    total = sum((x[0] for x in parsed if x is not None), Fraction(0, 1))
+    return f"{format_fraction(total)}{next(iter(units))}"
+
+
 def tool_html(tool: str | None) -> str:
     if not tool or tool == "なし":
         return ""
@@ -137,7 +177,9 @@ def render_prep(rows: list[dict], first_week: bool) -> str:
     for ingredient in sorted(grouped):
         parts.append(f'<div class="prep-ing"><h4>{escape(ingredient)}</h4>')
         for action, refs in grouped[ingredient].items():
-            parts.append(f'<div class="prep-action"><div class="prep-task">{escape(action)}</div><div class="prep-recipes">')
+            total_qty = aggregate_action_qty(refs)
+            action_label = action + (f'（{total_qty}）' if total_qty else '')
+            parts.append(f'<div class="prep-action"><div class="prep-task">{escape(action_label)}</div><div class="prep-recipes">')
             refs.sort(key=lambda x: DAY_ORDER.index(x[0]["day"]))
             for r, qty in refs:
                 day = r["day"]
