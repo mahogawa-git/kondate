@@ -32,3 +32,5 @@ jobs:
           git add index.html
           git commit -m 'Sync recipe data'
           git push
+
+# recipe check UI refresh: icon only
