@@ -62,7 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
 
-    weekEl.querySelectorAll('.daycard .row').forEach((row, i) => {
+    weekEl.querySelectorAll('.daycard .row').forEach(row => {
       const titleRow = row.querySelector('.dish-title-row');
       const dishLink = row.querySelector('.dishname a');
       const dishName = row.querySelector('.dishname');
@@ -120,3 +120,5 @@ document.addEventListener('DOMContentLoaded', () => {
           git add index.html
           git commit -m "Add recipe done checkboxes"
           git push
+
+# trigger: 2026-08-23
