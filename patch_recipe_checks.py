@@ -1,18 +1,18 @@
 from pathlib import Path
+import re
 
 INDEX = Path(__file__).resolve().parent / "index.html"
 
 CSS = r'''
 
 /* recipe completion checks */
-.recipe-done-wrap{flex:0 0 auto;display:inline-flex;align-items:center;gap:4px;margin-left:2px;cursor:pointer;user-select:none}
+.recipe-done-wrap{flex:0 0 auto;display:inline-flex;align-items:center;margin-left:2px;cursor:pointer;user-select:none}
 .recipe-done-cb{width:19px;height:19px;margin:0;accent-color:#6f8f68;cursor:pointer}
-.recipe-done-text{font-size:10.5px;color:#777168;white-space:nowrap}
 .row.recipe-done .dishname{text-decoration:line-through;opacity:.46}
 .row.recipe-done .title-icons{opacity:.48}
 .recipe-reset-wrap{display:flex;justify-content:flex-end;margin:-2px 0 8px}
 .recipe-reset{border:1px solid #ddd4c7;background:#f7f3ed;color:#6a6258;border-radius:999px;padding:6px 11px;font-size:11px;font-weight:700;min-height:30px;cursor:pointer}
-@media(max-width:390px){.recipe-done-text{display:none}.recipe-done-cb{width:20px;height:20px}}
+@media(max-width:390px){.recipe-done-cb{width:20px;height:20px}}
 '''
 
 JS = r'''
@@ -64,11 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
       cb.dataset.recipeKey = recipeKey;
       cb.checked = localStorage.getItem(prefix + recipeKey) === '1';
 
-      const text = document.createElement('span');
-      text.className = 'recipe-done-text';
-      text.textContent = '作った';
-
-      label.append(cb, text);
+      label.appendChild(cb);
       titleRow.appendChild(label);
       row.classList.toggle('recipe-done', cb.checked);
 
@@ -86,10 +82,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
 def main() -> None:
     html = INDEX.read_text(encoding="utf-8")
+
+    # Replace the whole feature blocks so future syncs always get the latest UI.
+    html = re.sub(
+        r'\n/\* recipe completion checks \*/.*?(?=\n</style>)',
+        CSS.rstrip(),
+        html,
+        count=1,
+        flags=re.S,
+    )
     if "/* recipe completion checks */" not in html:
         html = html.replace("\n</style>", CSS + "\n</style>", 1)
+
+    html = re.sub(
+        r'\n<script>\n/\* その週に作ったレシピのチェック。.*?</script>\n',
+        "\n" + JS + "\n",
+        html,
+        count=1,
+        flags=re.S,
+    )
     if "mealplan:recipe-done:" not in html:
         html = html.replace("\n</body>", "\n" + JS + "\n</body>", 1)
+
     INDEX.write_text(html, encoding="utf-8")
 
 
