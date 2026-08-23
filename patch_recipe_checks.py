@@ -41,7 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const reset = document.createElement('button');
       reset.type = 'button';
       reset.className = 'recipe-reset';
-      reset.textContent = '作ったチェックをリセット';
+      reset.textContent = 'この週をリセット';
       resetWrap.appendChild(reset);
       firstCard.before(resetWrap);
 
@@ -50,6 +50,21 @@ document.addEventListener('DOMContentLoaded', () => {
           cb.checked = false;
           cb.closest('.row')?.classList.remove('recipe-done');
           localStorage.removeItem(recipePrefix + cb.dataset.recipeKey);
+        });
+        weekEl.querySelectorAll('.daycard').forEach(card => {
+          const h3 = card.querySelector('.day-head-row h3') || card.querySelector(':scope > h3');
+          const day = h3?.textContent.trim();
+          if (!day) return;
+          const dayKey = `w${week}:${day}`;
+
+          const oneop = card.querySelector('.oneop-cb');
+          if (oneop) oneop.checked = false;
+          card.classList.remove('oneop-day');
+          localStorage.removeItem(oneopPrefix + dayKey);
+
+          const input = card.querySelector('.menu-override');
+          if (input) input.value = '';
+          localStorage.removeItem(overridePrefix + dayKey);
         });
       });
     }
