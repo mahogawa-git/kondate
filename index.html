@@ -373,6 +373,7 @@ html,body{overflow-x:hidden;max-width:100%}
 
 
 
+
 /* recipe completion checks + day controls */
 .recipe-done-wrap{flex:0 0 auto;display:inline-flex;align-items:center;margin-left:2px;cursor:pointer;user-select:none}
 .recipe-done-cb{width:19px;height:19px;margin:0;accent-color:#6f8f68;cursor:pointer}
@@ -475,6 +476,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
+
 <script>
 /* レシピの作成済みチェック + 曜日ごとのワンオペ・変更メニュー。ブラウザ内に保存する */
 document.addEventListener('DOMContentLoaded', () => {
@@ -491,7 +493,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const reset = document.createElement('button');
       reset.type = 'button';
       reset.className = 'recipe-reset';
-      reset.textContent = '作ったチェックをリセット';
+      reset.textContent = 'この週をリセット';
       resetWrap.appendChild(reset);
       firstCard.before(resetWrap);
 
@@ -500,6 +502,21 @@ document.addEventListener('DOMContentLoaded', () => {
           cb.checked = false;
           cb.closest('.row')?.classList.remove('recipe-done');
           localStorage.removeItem(recipePrefix + cb.dataset.recipeKey);
+        });
+        weekEl.querySelectorAll('.daycard').forEach(card => {
+          const h3 = card.querySelector('.day-head-row h3') || card.querySelector(':scope > h3');
+          const day = h3?.textContent.trim();
+          if (!day) return;
+          const dayKey = `w${week}:${day}`;
+
+          const oneop = card.querySelector('.oneop-cb');
+          if (oneop) oneop.checked = false;
+          card.classList.remove('oneop-day');
+          localStorage.removeItem(oneopPrefix + dayKey);
+
+          const input = card.querySelector('.menu-override');
+          if (input) input.value = '';
+          localStorage.removeItem(overridePrefix + dayKey);
         });
       });
     }
@@ -586,6 +603,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 </script>
+
 
 
 
