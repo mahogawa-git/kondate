@@ -370,16 +370,15 @@ html,body{overflow-x:hidden;max-width:100%}
 .shop-reset{margin-top:-30px!important;padding:6px 12px!important;font-size:12px!important;min-height:30px}
 
 
+
 /* recipe completion checks */
-.recipe-done-wrap{flex:0 0 auto;display:inline-flex;align-items:center;gap:4px;margin-left:2px;cursor:pointer;user-select:none}
+.recipe-done-wrap{flex:0 0 auto;display:inline-flex;align-items:center;margin-left:2px;cursor:pointer;user-select:none}
 .recipe-done-cb{width:19px;height:19px;margin:0;accent-color:#6f8f68;cursor:pointer}
-.recipe-done-text{font-size:10.5px;color:#777168;white-space:nowrap}
 .row.recipe-done .dishname{text-decoration:line-through;opacity:.46}
 .row.recipe-done .title-icons{opacity:.48}
 .recipe-reset-wrap{display:flex;justify-content:flex-end;margin:-2px 0 8px}
 .recipe-reset{border:1px solid #ddd4c7;background:#f7f3ed;color:#6a6258;border-radius:999px;padding:6px 11px;font-size:11px;font-weight:700;min-height:30px;cursor:pointer}
-@media(max-width:390px){.recipe-done-text{display:none}.recipe-done-cb{width:20px;height:20px}}
-
+@media(max-width:390px){.recipe-done-cb{width:20px;height:20px}}
 </style>
 </head>
 <body>
@@ -462,6 +461,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 
+
 <script>
 /* その週に作ったレシピのチェック。レシピURL単位で保存するので曜日を入れ替えても維持される */
 document.addEventListener('DOMContentLoaded', () => {
@@ -510,11 +510,7 @@ document.addEventListener('DOMContentLoaded', () => {
       cb.dataset.recipeKey = recipeKey;
       cb.checked = localStorage.getItem(prefix + recipeKey) === '1';
 
-      const text = document.createElement('span');
-      text.className = 'recipe-done-text';
-      text.textContent = '作った';
-
-      label.append(cb, text);
+      label.appendChild(cb);
       titleRow.appendChild(label);
       row.classList.toggle('recipe-done', cb.checked);
 
@@ -527,6 +523,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 </script>
+
 
 </body>
 </html>
