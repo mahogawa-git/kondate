@@ -6,6 +6,7 @@ on:
       - 'recipes.json'
       - 'sync_recipe_data.py'
       - 'aggregate_shopping.py'
+      - 'patch_recipe_checks.py'
       - '.github/workflows/sync-recipes.yml'
 
 permissions:
@@ -20,6 +21,7 @@ jobs:
         run: |
           python sync_recipe_data.py
           python aggregate_shopping.py
+          python patch_recipe_checks.py
       - name: Commit generated page
         run: |
           git config user.name 'github-actions[bot]'
